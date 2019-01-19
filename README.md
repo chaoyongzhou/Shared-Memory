@@ -1,2 +1,2 @@
 # Shared-Memory
-share memory queue and ring buffer
+shared memory queue and ring buffer
