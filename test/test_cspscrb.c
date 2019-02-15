@@ -26,7 +26,10 @@ extern "C"{
 #include "cspscrb.h"
 
 
-#define SPSCRB_CAPACITY     (1 << 20) /*1MB*/
+#define SPSCRB_CAPACITY                  (1 << 20) /*1MB*/
+#define SPSCRB_TEST_MAX_NUMBER           (1000 * 10000)
+
+static __thread uint64_t    g_spscrb_marker = 0;
 
 static size_t __cspscrb_set_msg(char *msg, size_t size, uint64_t num)
 {
@@ -76,13 +79,13 @@ static uint64_t __cspscrb_check_msg(char *msg, size_t size)
         assert(msg[ pos ] == msg[ pos % (len + 1) ]);
     }
 
-    fprintf(stdout, "[CHECK] %.*s => %ld\n", 16, msg, num);
-    fflush(stdout);
+    //fprintf(stdout, "[CHECK] %.*s => %ld\n", 16, msg, num);
+    //fflush(stdout);
 
     return (num);
 }
 
-void *cspscrb_thread_producer(void *cspscrb)
+void *cspscrb_producer_thread(void *cspscrb)
 {
     uint64_t        idx;
     char            msg[1 * 1024];
@@ -91,27 +94,27 @@ void *cspscrb_thread_producer(void *cspscrb)
 
     assert(CSPSCRB_MSG_MAX_LENGTH(SPSCRB_CAPACITY) >= sizeof(msg)/sizeof(msg[0]));
 
-    for(idx = 1; idx < 1000 * 10000;)
+    for(idx = 1; idx < SPSCRB_TEST_MAX_NUMBER;)
     {
         size_t      len;
-        CSPSC_BOOL  ret;
+        EC_BOOL     ret;
 
         len = __cspscrb_set_msg(msg, sizeof(msg)/sizeof(msg[0]), idx);
 
         ret = cspscrb_write((volatile CSPSCRB *)cspscrb, (void *)msg, len);
 
-        if(CSPSC_OFFER_SUCC == ret)
+        if(EC_OFFER_SUCC == ret)
         {
             produced += len;
 
-            fprintf(stdout, "[PRODUCER] offer %ld => produced %ld\n", idx, produced);
-            fflush(stdout);
+            //fprintf(stdout, "[PRODUCER] offer %ld => produced %ld\n", idx, produced);
+            //fflush(stdout);
 
             idx ++;
             continue;
         }
 
-        if(CSPSC_OFFER_ERR == ret)
+        if(EC_OFFER_ERR == ret)
         {
             fprintf(stdout, "[PRODUCER] offer %ld => produced %ld => failed\n", idx, produced);
             fflush(stdout);
@@ -126,21 +129,20 @@ void *cspscrb_thread_producer(void *cspscrb)
 void cspscrb_consumer_do(char *msg, size_t size)
 {
     uint64_t    idx;
-    static __thread uint64_t    marker = 0;
 
     idx = __cspscrb_check_msg(msg, size);
 
-    assert(marker + 1 == idx);
+    assert(g_spscrb_marker + 1 == idx);
 
-    fprintf(stdout, "[CONSUMER] consumer %ld\n", idx);
-    fflush(stdout);
+    //fprintf(stdout, "[CONSUMER] consumer %ld\n", idx);
+    //fflush(stdout);
 
-    marker ++;
+    g_spscrb_marker ++;
 
     return;
 }
 
-void *cspscrb_thread_consumer(void *cspscrb)
+void *cspscrb_consumer_thread(void *cspscrb)
 {
     for(;;)
     {
@@ -149,7 +151,7 @@ void *cspscrb_thread_consumer(void *cspscrb)
         consumed = cspscrb_read((volatile CSPSCRB *)cspscrb, (CSPSCRB_DRAIN_FUNC)cspscrb_consumer_do, 128);
         if(0 < consumed)
         {
-            fprintf(stdout, "[CONSUMER] ------------------ consumed %ld\n", consumed);
+            fprintf(stdout, "[CONSUMER] ------------------ consumed %ld => marker %ld\n", consumed, g_spscrb_marker);
         }
     }
 
@@ -175,12 +177,12 @@ int main(int argc, char **argv)
     cspscrb_init(&cspscrb, SPSCRB_CAPACITY + CSPSCRB_TRAILER_LENGTH);
 
     pthread_attr_setdetachstate(&attribute, PTHREAD_CREATE_JOINABLE);
-    assert(0 == pthread_create(&consumer_tid, &attribute, cspscrb_thread_consumer, (void *)&cspscrb));
+    assert(0 == pthread_create(&consumer_tid, &attribute, cspscrb_consumer_thread, (void *)&cspscrb));
 
     pthread_attr_setdetachstate(&attribute, PTHREAD_CREATE_JOINABLE);
-    assert(0 == pthread_create(&producer_tid, &attribute, cspscrb_thread_producer, (void *)&cspscrb));
+    assert(0 == pthread_create(&producer_tid, &attribute, cspscrb_producer_thread, (void *)&cspscrb));
 
-    pthread_join(consumer_tid, NULL);
+    //pthread_join(consumer_tid, NULL);
     pthread_join(producer_tid, NULL);
 
     cspscrb_clean(&cspscrb);

@@ -5,13 +5,12 @@
 * QQ: 2796796
 *
 *******************************************************************************/
-
 #ifdef __cplusplus
 extern "C"{
 #endif/*__cplusplus*/
 
-#ifndef _CSPSC_H
-#define _CSPSC_H
+#ifndef _TYPE_H
+#define _TYPE_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,23 +18,18 @@ extern "C"{
 #include <string.h>
 #include <errno.h>
 
-#include "cbitutil.h"
+typedef uint64_t            EC_BOOL;
 
+#define EC_TRUE             ((EC_BOOL)  0)
+#define EC_FALSE            ((EC_BOOL)  1)
 
-typedef uint64_t            CSPSC_BOOL;
+#define EC_OFFER_SUCC       ((EC_BOOL)  0)
+#define EC_OFFER_FULL       ((EC_BOOL) -1)
+#define EC_OFFER_ERR        ((EC_BOOL) -2)
 
-#define CSPSC_OFFER_SUCC    ((CSPSC_BOOL)  0)
-#define CSPSC_OFFER_ERR     ((CSPSC_BOOL) -2)
-#define CSPSC_OFFER_FULL    ((CSPSC_BOOL) -1)
-
-#define CSPSC_TRUE          ((CSPSC_BOOL)  0)
-#define CSPSC_FALSE         ((CSPSC_BOOL)  1)
-
-
-#endif/*_CSPSC_H*/
+#endif /*_TYPE_H*/
 
 #ifdef __cplusplus
 }
 #endif/*__cplusplus*/
-
 

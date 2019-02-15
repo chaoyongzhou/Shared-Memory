@@ -13,7 +13,8 @@ extern "C"{
 #ifndef _CSPSCRB_H
 #define _CSPSCRB_H
 
-#include "cspsc.h"
+#include "type.h"
+#include "cbitutil.h"
 
 #define CSPSCRB_REC_STATUS_NOT_USED     ((int32_t) 0)
 #define CSPSCRB_REC_STATUS_IS_WRITING   ((int32_t) 1)
@@ -60,11 +61,11 @@ typedef struct
 
 typedef void (*CSPSCRB_DRAIN_FUNC)(const void *, size_t);
 
-CSPSC_BOOL cspscrb_init(volatile CSPSCRB *cspscrb, size_t length);
+EC_BOOL cspscrb_init(volatile CSPSCRB *cspscrb, size_t length);
 
-CSPSC_BOOL cspscrb_clean(CSPSCRB *cspscrb);
+EC_BOOL cspscrb_clean(CSPSCRB *cspscrb);
 
-CSPSC_BOOL cspscrb_write( volatile CSPSCRB *cspscrb, const void *msg, size_t length);
+EC_BOOL cspscrb_write( volatile CSPSCRB *cspscrb, const void *msg, size_t length);
 
 size_t cspscrb_read( volatile CSPSCRB *cspscrb, CSPSCRB_DRAIN_FUNC handler, size_t msg_count_limit);
 

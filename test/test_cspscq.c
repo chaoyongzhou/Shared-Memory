@@ -26,18 +26,22 @@ extern "C"{
 #include "cspscq.h"
 
 
-#define SPSC_QUEUE_CAPACITY     (256)
+#define SPSCQ_QUEUE_CAPACITY            (256)
 
-void *thread_producer(void *spsc_queue)
+#define SPSCQ_TEST_MAX_NUMBER           (1000 * 10000)
+
+static __thread uint64_t    g_spscq_marker = 0;
+
+void *cspscq_producer_thread(void *spsc_queue)
 {
     uint64_t        idx;
 
-    for(idx = 1; idx < 1000000;)
+    for(idx = 1; idx < SPSCQ_TEST_MAX_NUMBER;)
     {
-        if(CSPSC_OFFER_SUCC == cspscq_offer((volatile CSPSCQ *)spsc_queue, (void *)idx))
+        if(EC_OFFER_SUCC == cspscq_offer((volatile CSPSCQ *)spsc_queue, (void *)idx))
         {
-            fprintf(stdout, "[PRODUCER] offer %ld\n", idx);
-            fflush(stdout);
+            //fprintf(stdout, "[PRODUCER] offer %ld\n", idx);
+            //fflush(stdout);
 
             idx ++;
         }
@@ -45,33 +49,32 @@ void *thread_producer(void *spsc_queue)
     return (NULL);
 }
 
-void consumer_do(volatile void *item)
+void cspscq_consumer_do(volatile void *item)
 {
     uint64_t    idx;
-    static __thread uint64_t    marker = 0;
 
     idx = (uint64_t)item;
 
-    assert(marker + 1 == idx);
+    assert(g_spscq_marker + 1 == idx);
 
-    fprintf(stdout, "[CONSUMER] consumer %ld\n", idx);
-    fflush(stdout);
+    //fprintf(stdout, "[CONSUMER] consumer %ld\n", idx);
+    //fflush(stdout);
 
-    marker ++;
+    g_spscq_marker ++;
 
     return;
 }
 
-void *thread_consumer(void *spsc_queue)
+void *cspscq_consumer_thread(void *spsc_queue)
 {
     for(;;)
     {
         uint64_t    consumed;
 
-        consumed = cspscq_drain_all((volatile CSPSCQ *)spsc_queue, (CSPSCQ_DRAIN_FUNC)consumer_do);
+        consumed = cspscq_drain_all((volatile CSPSCQ *)spsc_queue, (CSPSCQ_DRAIN_FUNC)cspscq_consumer_do);
         if(0 < consumed)
         {
-            fprintf(stdout, "[CONSUMER] ------------------ consumed %ld\n", consumed);
+            fprintf(stdout, "[CONSUMER] ------------------ consumed %ld => marker %ld\n", consumed, g_spscq_marker);
         }
     }
 
@@ -94,13 +97,13 @@ int main(int argc, char **argv)
     pthread_attr_setstacksize(&attribute, 64 * 1024);
     pthread_attr_setguardsize(&attribute, 4 * 1024);
 
-    cspscq_init(&spsc_queue, SPSC_QUEUE_CAPACITY);
+    cspscq_init(&spsc_queue, SPSCQ_QUEUE_CAPACITY);
 
     pthread_attr_setdetachstate(&attribute, PTHREAD_CREATE_DETACHED);
-    assert(0 == pthread_create(&consumer_tid, &attribute, thread_consumer, (void *)&spsc_queue));
+    assert(0 == pthread_create(&consumer_tid, &attribute, cspscq_consumer_thread, (void *)&spsc_queue));
 
     pthread_attr_setdetachstate(&attribute, PTHREAD_CREATE_JOINABLE);
-    assert(0 == pthread_create(&producer_tid, &attribute, thread_producer, (void *)&spsc_queue));
+    assert(0 == pthread_create(&producer_tid, &attribute, cspscq_producer_thread, (void *)&spsc_queue));
 
     pthread_join(producer_tid, NULL);
     //pthread_join(consumer_tid, NULL);
